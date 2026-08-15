@@ -265,20 +265,6 @@ function inferToolPaths(toolName: string, input: any): string[] {
 	return [...paths];
 }
 
-function needsPermission(
-	toolName: string,
-	input: any,
-	sessionName: string,
-): string | null {
-	if (toolName === "bash") {
-		const command = asString(input?.command) || "";
-		if (/\bsudo\b|\brm\s+(-rf?|--recursive|--force)/i.test(command)) {
-			return `Dangerous bash command in ${sessionName}: ${command}`;
-		}
-	}
-	return null;
-}
-
 function resetExtendedKeyboardModesForHandoff(): void {
 	try {
 		process.stdout.write("\x1b[<999u\x1b[>4;0m");
@@ -1089,23 +1075,6 @@ export function registerLiveUi(pi: ExtensionAPI) {
 
 	pi.on("tool_call", async (event: any, ctx: CommandContext) => {
 		const record = host.bindSessionContext(ctx);
-		const reason = needsPermission(event.toolName, event.input, record.name);
-		if (reason) {
-			if (record.id !== host.activeId) host.updateActivity(ctx, "waiting");
-			const ok = await ctx.ui.confirm("pi-msessions permission", reason, {
-				timeout: 60000,
-			} as any);
-			if (ok && record.id !== host.activeId) {
-				record.activity = "working";
-				record.lastActivityAt = Date.now();
-				host.notify();
-			}
-			if (!ok)
-				return {
-					block: true,
-					reason: "Denied by pi-msessions permission routing",
-				};
-		}
 		const paths = inferToolPaths(event.toolName, event.input);
 		if (!paths.length) return undefined;
 		const result = host.locks.acquire(record.id, paths, ctx.cwd || record.cwd);
