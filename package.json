@@ -1,0 +1,22 @@
+{
+  "name": "pi-msessions",
+  "version": "0.1.0",
+  "description": "提供编程式多会话 API：其他插件可调用创建独立子会话跑任务并取回指标（含扩展过滤，支持无插件臂）",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "file:/Users/meetai/.nvm/versions/node/v22.22.0/lib/node_modules/@earendil-works/pi-coding-agent",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "test": "node --test test/api.test.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}
