@@ -894,11 +894,12 @@ class PiSessionsHost {
 function getHost(): PiSessionsHost {
 	const g = globalThis as any;
 	const existing = g[HOST_KEY];
-	// reload 后旧版代码创建的 host 实例可能缺新方法（如 createLiveSession）→ 重建
-	if (
-		existing instanceof PiSessionsHost &&
-		typeof existing.createLiveSession === "function"
-	) {
+	// 子会话/多实例/重载都会以新模块实例执行本文件，instanceof 永远不成立，
+	// 会导致 getHost 把仍在使用的 host 误判为旧代码而重建副本：
+	// 副本的 activeId/parentTui 是迁移时的旧值（父会话），子会话里切换回父会话
+	// 会因 targetToActivate === host.activeId 被静默 no-op（“切不回去”）。
+	// 按能力判断：现有 host 只要还具备当前 API（createLiveSession）就直接复用。
+	if (existing && typeof existing.createLiveSession === "function") {
 		return existing;
 	}
 	const fresh = new PiSessionsHost();
