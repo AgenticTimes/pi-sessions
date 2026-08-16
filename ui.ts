@@ -1,4 +1,5 @@
-// @ts-nocheck
+// pi-msessions 切换器 UI：会话列表 / 文件夹选择 / 恢复历史会话。
+// 全部类型化（pi-tui 导出 Component/Focusable/Input 等）。
 import { closeSync, existsSync, openSync, readSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -649,7 +650,7 @@ class ResumeSessionPicker implements Component, Focusable {
 	private readonly filterInput = new Input();
 
 	constructor(
-		private readonly theme: any,
+		private readonly theme: Theme,
 		private readonly loadSessions: () => Promise<SavedSessionInfo[]>,
 		private readonly onDone: (sessionPath: string | null) => void,
 		private readonly requestRender: () => void,
@@ -857,7 +858,7 @@ class SessionsView {
 	private initialSelectionSet = false;
 	private nameWidth = 30;
 	private readonly filterInput = new Input();
-	private readonly theme: any;
+	private readonly theme: Theme;
 	private readonly done: () => void;
 	private readonly actions: SessionsActions;
 	private readonly requestRender: () => void;
@@ -866,7 +867,7 @@ class SessionsView {
 	private timer: NodeJS.Timeout | null = null;
 
 	constructor(
-		theme: any,
+		theme: Theme,
 		done: () => void,
 		actions: SessionsActions,
 		requestRender: () => void,

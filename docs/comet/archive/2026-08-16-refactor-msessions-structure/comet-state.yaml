@@ -1,0 +1,456 @@
+schema: comet.native.v4
+name: refactor-msessions-structure
+language: zh-CN
+phase: archive
+status: done
+state_version: 7
+brief: brief.md
+spec_changes:
+  - capability: module-structure
+    operation: create
+    source: specs/module-structure/spec.md
+workspace:
+  isolation: current
+  change_branch: main
+  target_branch: main
+  finish: null
+loop:
+  stage: done
+  goal_cycle: 1
+  iteration: 1
+  attempt: 1
+  retry_epoch: 0
+  failed_iteration_count: 0
+  no_progress_count: 0
+  execution_failure_count: 0
+  previous_unresolved_ids: []
+  next_action: null
+acceptance:
+  - id: A1
+    source: brief.md
+    text: "A1: `live.ts` 拆分为 locks/adapter/host/runtime/live 五个模块，职责边界清晰（无循环依赖，host
+      依赖 locks+adapter，runtime 独立，live.ts 仅胶水）。"
+    result: passed
+    reason:
+      text: live.ts(1114行)拆为 locks/adapter/host/runtime/live 五模块，边界清晰；依赖边
+        host→locks/adapter/runtime、live→host+ui+locks、runtime 无本地 import、adapter
+        对 host 仅 type-only，无 import 环
+      truncated: false
+  - id: A2
+    source: brief.md
+    text: "A2: 所有源文件（含 ui.ts）无 `@ts-nocheck` 残留；`npm run typecheck` 干净。"
+    result: passed
+    reason:
+      text: 正则 ^\s*//\s*@ts-nocheck 全库无实际指令；r-typecheck.log tsc --noEmit
+        无诊断；r-nocheck-grep 唯一命中为 runtime.ts:194 注释里的历史叙述文字，非指令
+      truncated: false
+  - id: A3
+    source: brief.md
+    text: 'A3: 行为无回归：`npm test` 10/10；headless + live 真实 LLM 冒烟均 ok:true 且
+      answer="OK"。'
+    result: passed
+    reason:
+      text: "r-unit-tests.log: 10/10；r-smoke-headless.log 与 r-smoke-live.log 均 ok:true
+        answer=OK（真实 LLM）"
+      truncated: false
+  - id: A4
+    source: brief.md
+    text: "A4: `api.ts`/`index.ts`/冒烟脚本的导入路径不变（对外契约不变），live.ts 对 getLiveHost 再导出。"
+    result: passed
+    reason:
+      text: api.ts:16/index.ts:7/scripts import 均未改动；live.ts 再导出 getLiveHost，契约不变
+      truncated: false
+  - id: A5
+    source: brief.md
+    text: "A5: 拆分后代码与拆分前逻辑等价（Verifier 对照 diff 审查：无逻辑改动，仅搬移+类型）。"
+    result: passed
+    reason:
+      text: 对照 diff 逐项核对：LockManager/路径工具/InteractiveModeAdapter/PiSessionsHost
+        纯搬移逐字节一致；createRuntime 继承回退改 DI provider 语义等价（含 {} truthy 写 WeakMap
+        行为）；仅类型层调整（ok===false、判别联合、on 桥接）
+      truncated: false
+  - id: A6
+    source: specs/module-structure/spec.md
+    text: pi-msessions 源码按职责分层组织，全部文件通过 TypeScript 类型检查（无
+      `@ts-nocheck`），运行时行为与对外契约与重构前完全一致。
+    result: passed
+    reason:
+      text: 职责分层符合 spec，全部文件过 typecheck，运行时行为与对外契约不变
+      truncated: false
+  - id: A7
+    source: specs/module-structure/spec.md
+    text: "`locks.ts`：路径锁纯逻辑——`LockManager`（acquire/release/releaseByToolCall）、路径规范\
+      化/冲突判定（`normalizeLockPath`/`pathsConflict`）、工具调用路径推断（`inferToolPaths`/`as\
+      String`）。无 pi/live 依赖，可独立测试。"
+    result: passed
+    reason:
+      text: locks.ts 仅依赖 node:os/path，含 LockManager + 路径工具，内容与原文件一致
+      truncated: false
+  - id: A8
+    source: specs/module-structure/spec.md
+    text: "`adapter.ts`：`InteractiveModeAdapter`（start/suspend/resume/dispose +
+      terminal gate 劫持 setProgress/setTitle）+
+      `resetExtendedKeyboardModesForHandoff`。依赖 host 的 activeId 判断。"
+    result: passed
+    reason:
+      text: adapter.ts 含 InteractiveModeAdapter + terminal gate + reset，对 host 仅
+        type-only import
+      truncated: false
+  - id: A9
+    source: specs/module-structure/spec.md
+    text: "`host.ts`：`PiSessionsHost`——会话注册表（records）、激活/切换（activate/doActivate/ent\
+      erFromParent/activateFromContext）、子会话创建（createChildFromContext/openSavedS\
+      essionAsLive/createLiveSession/createRecordForSessionManager）、销毁（stopChil\
+      d）、上下文绑定（bindSessionContext/updateActivity/currentContextId/registerParen\
+      t）、快照/订阅（snapshot/listLive/publicSession/subscribe/notify）。定义
+      `LiveSessionRecord`/`LiveState`/`Activity` 类型。"
+    result: passed
+    reason:
+      text: host.ts 含 PiSessionsHost 全部方法 + LiveSessionRecord 类型 + getHost 迁移 + DI
+        provider 注册
+      truncated: false
+  - id: A10
+    source: specs/module-structure/spec.md
+    text: "`runtime.ts`：`createRuntime`（CreateAgentSessionRuntimeFactory）——子会话
+      services
+      构建、继承解析（collectRuntimeInheritance/safeCollectRuntimeInheritance/createInh\
+      eritedSettingsManager/resolveChildSessionOptions/loadModelResolver）、`runt\
+      imeInheritanceBySessionManager` WeakMap。依赖 host 读取 active 记录。"
+    result: passed
+    reason:
+      text: runtime.ts 含 createRuntime + 继承解析 + WeakMap + provider seam，不 import
+        host.ts
+      truncated: false
+  - id: A11
+    source: specs/module-structure/spec.md
+    text: "`live.ts`：胶水层——`registerLiveUi`（/msessions
+      命令、Ctrl-R、session_start/agent_start/agent_end/tool_call/tool_result/sessi\
+      on_shutdown 事件绑定、widget 安装）、`openSessions` 切换器回调、`getLiveHost`
+      再导出、`patchInteractiveModeWorkingIndicator`。"
+    result: passed
+    reason:
+      text: live.ts 胶水层含 registerLiveUi/openSessions/installWidget/patch
+        spinner/getLiveHost 再导出
+      truncated: false
+  - id: A12
+    source: specs/module-structure/spec.md
+    text: "`ui.ts`：切换器
+      UI（SessionWidget/FileExplorer/ResumeSessionPicker/SessionsView/showSessio\
+      nsView），单文件，全部类型化。"
+    result: passed
+    reason:
+      text: ui.ts 保持单文件，@ts-nocheck 移除，theme:any→Theme
+      truncated: false
+  - id: A13
+    source: specs/module-structure/spec.md
+    text: runtime → host → (locks + adapter)；live.ts → host + ui + runtime；api.ts →
+      live.ts（getLiveHost 再导出）+
+      metrics。无循环依赖；`runtimeInheritanceBySessionManager` WeakMap 为跨模块共享状态，定义在
+      runtime.ts。
+    result: passed
+    reason:
+      text: 依赖图无环；live.ts 经 host 传递 runtime 依赖（未直接 import runtime.ts），更解耦，语义覆盖达成
+      truncated: false
+  - id: A14
+    source: specs/module-structure/spec.md
+    text: 内部结构（LiveSessionRecord、SessionInfo、SessionsActions、WidgetSnapshot、MetricsAcc
+      等）完整类型化。
+    result: passed
+    reason:
+      text: LiveSessionRecord/SessionInfo/SessionsActions/WidgetSnapshot/MetricsAcc/LockAcquireResult/AdapterState
+        均显式类型
+      truncated: false
+  - id: A15
+    source: specs/module-structure/spec.md
+    text: pi 内部 API 边界（CommandContext 内部字段、事件 payload、InteractiveMode 运行时对象）用 `any`
+      或最小局部接口。
+    result: passed
+    reason:
+      text: pi 边界 any 有界合规：mode/runtime 对象、事件 payload、on 桥、ui.ts 3 处，均注释说明
+      truncated: false
+  - id: A16
+    source: specs/module-structure/spec.md
+    text: 不引入 strict 全量；`tsconfig` 维持现状（除 `skipLibCheck` 外不新增严格开关）。
+    result: passed
+    reason:
+      text: tsconfig 仅扩 include（覆盖率修正，新模块纳入检查），未新增任何 strict 开关
+      truncated: false
+  - id: A17
+    source: specs/module-structure/spec.md
+    text: 全局键不变：`HOST_KEY`（`__PI_SESSIONS_HOST__`）、`Symbol.for("pi.msessions")`、`INTERACTIVE_MODE_SPINNER_PATCHED`。
+    result: passed
+    reason:
+      text: HOST_KEY/Symbol.for("pi.msessions")/INTERACTIVE_MODE_SPINNER_PATCHED 全局键不变
+      truncated: false
+  - id: A18
+    source: specs/module-structure/spec.md
+    text: "`api.ts`/`index.ts`/冒烟脚本的 import 路径不变。"
+    result: passed
+    reason:
+      text: api.ts/index.ts/scripts 未改动，import 路径不变
+      truncated: false
+  - id: A19
+    source: specs/module-structure/spec.md
+    text: 静态 import 链保持（防 jiti 双实例分裂）；不做运行时行为改动。
+    result: passed
+    reason:
+      text: 静态 import 链保留；model-resolver 动态 import 为原文件既有（原样搬移）
+      truncated: false
+builder_handoff:
+  candidate_id: c88c92fc-fdb0-4b44-aaad-b38aab230e9a
+  identity_provider: skill-coordinated
+  builder_execution_ref: skill-coordinated:builder:aa9798de-e1f1-46d0-93f6-47b0091140c4
+  iteration: 1
+  summary:
+    text: 结构重构完成：live.ts(1114行)拆为
+      locks.ts(110)/adapter.ts(125)/runtime.ts(220)/host.ts(551)/live.ts(224
+      胶水)，ui.ts 去 @ts-nocheck 补 Theme 类型，全部文件类型化。要点：runtime↔host 循环依赖用 DI seam
+      消除（setActiveChildInheritanceProvider，host 模块初始化注册，调用时点解析）；pi.on/shortcut
+      ctx 在 pi 类型边界用 as any 桥接（.d.ts 未覆盖，代码注释说明）；LockManager.acquire 返回判别联合修复
+      strictNullChecks-off 收窄怪癖（!result.ok → result.ok===false，运行时语义相同）。tsconfig
+      include 从 [index,api,test] 扩展为 *.ts+test/+scripts/——原 include 不含
+      live.ts，拆分后新模块必须纳入 typecheck（未新增任何 strict 开关）。验证：npm run typecheck
+      干净（全文件）、npm test 10/10、README 冒烟构建 exit 0、headless+live 真实 LLM 冒烟均 ok:true
+      answer=OK、grep 确认无 @ts-nocheck 残留（仅 runtime.ts 注释提到该词）。
+    truncated: false
+  addressed_acceptance_ids:
+    - A1
+    - A2
+    - A3
+    - A4
+    - A5
+    - A6
+    - A7
+    - A8
+    - A9
+    - A10
+    - A11
+    - A12
+    - A13
+    - A14
+    - A15
+    - A16
+    - A17
+    - A18
+    - A19
+  checks:
+    - name:
+        text: npm run typecheck
+        truncated: false
+      result: passed
+      note:
+        text: tsc --noEmit 干净；tsconfig include 已扩展覆盖全部源文件（原 include 不含 live.ts）
+        truncated: false
+    - name:
+        text: npm test
+        truncated: false
+      result: passed
+      note:
+        text: 10/10 通过
+        truncated: false
+    - name:
+        text: grep @ts-nocheck 残留检查
+        truncated: false
+      result: passed
+      note:
+        text: 源码无 @ts-nocheck；runtime.ts 仅注释文字提到该词
+        truncated: false
+    - name:
+        text: README 冒烟构建命令
+        truncated: false
+      result: passed
+      note:
+        text: tsc(手动 flags, strict-off) exit 0，.build/scripts 正常产出
+        truncated: false
+    - name:
+        text: smoke.ts (headless, real LLM)
+        truncated: false
+      result: passed
+      note:
+        text: ok:true answer=OK
+        truncated: false
+    - name:
+        text: smoke-live.ts (live, real LLM)
+        truncated: false
+      result: passed
+      note:
+        text: ok:true answer=OK
+        truncated: false
+    - name:
+        text: git diff 变更范围审查
+        truncated: false
+      result: passed
+      note:
+        text: live.ts 1114→224、ui.ts -7/+3（类型）、tsconfig include、新增 5 文件；无逻辑改动
+        truncated: false
+  checks_truncated: false
+  known_limits:
+    - text: A5 逻辑等价：由 Verifier 对照 git diff 审查（搬移+类型为主，无逻辑改动）
+      truncated: false
+    - text: live 切换 UI 交互（/msessions、Ctrl-R TUI 行为）不在冒烟覆盖内（无 TUI 环境），仅类型级保证
+      truncated: false
+    - text: tsconfig include 扩展属必要修正（原 include 不含 live.ts，拆分后新模块必须纳入 typecheck）；未新增
+        strict 开关，符合 A16 意图
+      truncated: false
+    - text: pi.on 事件名与 shortcut ctx 在 pi .d.ts 未覆盖，边界 as any 桥接（代码内注释说明）
+      truncated: false
+  known_limits_truncated: false
+  submitted_at: 2026-08-16T06:17:40.937Z
+blockers: []
+verification:
+  candidate_id: c88c92fc-fdb0-4b44-aaad-b38aab230e9a
+  identity_provider: skill-coordinated
+  verifier_execution_ref: skill-coordinated:verifier:3e803be7-30a5-4e37-aad1-b2adba6e5176
+  iteration: 1
+  attempt: 1
+  assurance: skill-coordinated
+  verdict: pass
+  checks:
+    - id: r-unit-tests
+      name:
+        text: npm test
+        truncated: false
+      argv_display:
+        - text: test
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 280
+    - id: r-typecheck
+      name:
+        text: npm run typecheck
+        truncated: false
+      argv_display:
+        - text: run
+          truncated: false
+        - text: typecheck
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 1832
+    - id: r-nocheck-grep
+      name:
+        text: grep @ts-nocheck 残留检查
+        truncated: false
+      argv_display:
+        - text: -rn
+          truncated: false
+        - text: "@ts-nocheck"
+          truncated: false
+        - text: locks.ts
+          truncated: false
+        - text: adapter.ts
+          truncated: false
+        - text: runtime.ts
+          truncated: false
+        - text: host.ts
+          truncated: false
+        - text: live.ts
+          truncated: false
+        - text: ui.ts
+          truncated: false
+        - text: api.ts
+          truncated: false
+        - text: index.ts
+          truncated: false
+        - text: metrics.ts
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 5
+    - id: r-smoke-headless
+      name:
+        text: smoke.ts (headless, real LLM)
+        truncated: false
+      argv_display:
+        - text: -c
+          truncated: false
+        - text: rm -rf .build && ./node_modules/.bin/tsc --noEmit false
+            --rewriteRelativeImportExtensions --outDir .build --module nodenext
+            --moduleResolution nodenext --target es2022 --skipLibCheck --types
+            node --allowImportingTsExtensions scripts/smoke.ts && node
+            .build/scripts/smoke.js
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 7699
+    - id: r-smoke-live
+      name:
+        text: smoke-live.ts (live, real LLM)
+        truncated: false
+      argv_display:
+        - text: -c
+          truncated: false
+        - text: rm -rf .build && ./node_modules/.bin/tsc --noEmit false
+            --rewriteRelativeImportExtensions --outDir .build --module nodenext
+            --moduleResolution nodenext --target es2022 --skipLibCheck --types
+            node --allowImportingTsExtensions scripts/smoke-live.ts && node
+            .build/scripts/smoke-live.js
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 7205
+    - id: r-diff-stat
+      name:
+        text: git diff --stat（变更范围审查）
+        truncated: false
+      argv_display:
+        - text: diff
+          truncated: false
+        - text: --stat
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 9
+  summary:
+    text: 全部 19 项验收通过：五模块拆分与原 live.ts 逐方法核对一致，唯一运行时相关改动为
+      !result.ok→result.ok===false（语义等价）；Runtime 六项检查全部完成（单测 10/10、typecheck
+      无诊断、双冒烟 ok:true/answer=OK、无 @ts-nocheck 指令）；tsconfig 仅扩 include 覆盖率。
+    truncated: false
+  risks:
+    - text: r-nocheck-grep 命中 runtime.ts:194 注释中 '@ts-nocheck'
+        字面量（历史叙述非指令），字面空输出判定会误报；可选清理注释措辞
+      truncated: false
+    - text: A13 spec 原文 'live.ts→host+ui+runtime'，实现为 live.ts 经 host 传递 runtime
+        依赖，无环且更解耦
+      truncated: false
+  risks_truncated: false
+  completed_at: 2026-08-16T06:21:13.048Z
+history:
+  - goal_cycle: 1
+    iteration: 1
+    attempt: 1
+    outcome: pass
+    unresolved_ids: []
+    summary:
+      text: 全部 19 项验收通过：五模块拆分与原 live.ts 逐方法核对一致，唯一运行时相关改动为
+        !result.ok→result.ok===false（语义等价）；Runtime 六项检查全部完成（单测 10/10、typecheck
+        无诊断、双冒烟 ok:true/answer=OK、无 @ts-nocheck 指令）；tsconfig 仅扩 include 覆盖率。
+      truncated: false
+    completed_at: 2026-08-16T06:21:13.048Z
+history_overflow:
+  dropped_entries: 0
+  first_dropped_at: null
+  last_dropped_at: null
+  outcome_counts:
+    pass: 0
+    fail: 0
+    blocked: 0
+    execution-error: 0
+    recovery: 0
+verification_result: pass
+verification_report: verification.md
+archived: true
+created_at: 2026-08-16T06:01:57.090Z
