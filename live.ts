@@ -1,6 +1,8 @@
 // pi-msessions 入口胶水层：/msessions 命令、Ctrl-R、事件绑定、widget 安装。
 // 拆分后仅保留编排职责；host/锁/适配器/运行时见 host.ts / locks.ts / adapter.ts / runtime.ts。
 
+import { spawnSync } from "node:child_process";
+import { existsSync, unlinkSync } from "node:fs";
 import {
 	InteractiveMode,
 	SessionManager,
@@ -83,6 +85,19 @@ async function openSessions(
 		getSessions: async () =>
 			host.listLive().map((record) => host.publicSession(record)),
 		getResumeSessions,
+		deleteLiveSession: async (id: string) => {
+			await host.stopChild(id);
+		},
+		deleteResumeSession: async (sessionPath: string) => {
+			// 与 pi 自带 /resume picker 一致：先试 trash（可恢复），失败回退直接删除
+			const args = sessionPath.startsWith("-")
+				? ["--", sessionPath]
+				: [sessionPath];
+			const r = spawnSync("trash", args, { encoding: "utf-8" });
+			if (r.status !== 0 && existsSync(sessionPath)) {
+				unlinkSync(sessionPath);
+			}
+		},
 		getAttached: () => host.activeId,
 		getCwd: () => ctx.cwd || process.cwd(),
 		// 渲染某会话的真实聊天组件（LLM 输出 UI）：光标移动时切换器主区实时显示

@@ -16,7 +16,7 @@
     "typescript": "^5.5.0"
   },
   "scripts": {
-    "test": "node --test test/api.test.ts",
+    "test": "node --test test/api.test.ts test/dispose.test.ts",
     "typecheck": "tsc --noEmit"
   }
 }

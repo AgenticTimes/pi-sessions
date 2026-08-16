@@ -107,6 +107,16 @@ export class InteractiveModeAdapter {
 		const ui = this.ui;
 		const originalUiStop = ui?.stop?.bind(ui);
 		const canTouchTerminal = this.host.activeId === this.id;
+		// 关键修复：stopInteractiveTui 对 fullscreen renderer 会 switchTuiMode("regular")
+		// —— 新建 TUI 并 renderNow() 渲染到共享终端；非 active 时下方 ui.stop 被替换为空，
+		// 新 TUI 残留不清理，删除多次后终端被残留渲染污染（乱码/序列泄漏）。
+		// 把 renderer.mode 标记为 regular 可跳过该分支，直接清理当前 renderer。
+		try {
+			const renderer = (this.mode as any)?.renderer;
+			if (renderer && renderer.mode === "fullscreen") {
+				renderer.mode = "regular";
+			}
+		} catch {}
 		try {
 			if (ui && originalUiStop && !canTouchTerminal) {
 				ui.stop = () => {};

@@ -1,6 +1,6 @@
 // pi-msessions 切换器 UI：会话列表 / 文件夹选择 / 恢复历史会话。
 // 全部类型化（pi-tui 导出 Component/Focusable/Input 等）。
-import { closeSync, existsSync, openSync, readSync, readdirSync, statSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -43,6 +43,9 @@ type SavedSessionInfo = {
 type SessionsActions = {
 	getSessions: () => Promise<SessionInfo[]>;
 	getResumeSessions?: () => Promise<SavedSessionInfo[]>;
+	deleteResumeSession?: (sessionPath: string) => Promise<void>;
+	/** 真正等待会话被停止并移除（killSession 是延迟执行，删除需要同步等待结果） */
+	deleteLiveSession?: (id: string) => Promise<void>;
 	getAttached: () => string | null;
 	getCwd: () => string;
 	switchTo: (id: string) => Promise<void>;
@@ -70,13 +73,14 @@ type WorkingIndicatorOptions = {
 	intervalMs?: number;
 };
 
-function isCtrl(data: string, key: "o" | "r" | "k" | "p" | "n"): boolean {
+function isCtrl(data: string, key: "o" | "r" | "k" | "p" | "n" | "d"): boolean {
 	const codes: Record<string, string> = {
 		o: "\x0f",
 		r: "\x12",
 		k: "\x0b",
 		p: "\x10",
 		n: "\x0e",
+		d: "\x04",
 	};
 	return data === codes[key] || matchesKey(data, Key.ctrl(key));
 }
@@ -426,7 +430,18 @@ export class FileExplorer implements Component, Focusable {
 			return;
 		}
 		if (matchesKey(data, Key.enter)) {
-			this.chooseSelectedDirectory();
+			// 优先：列表选中的已存在目录
+			const entry = this.selected();
+			if (entry?.isDirectory) {
+				const chosen = normalizeExistingDir(entry.path);
+				if (chosen) {
+					this.done(chosen);
+					return;
+				}
+			}
+			// fallback：输入框路径不存在时自动创建（父目录需存在，避免误建）
+			const created = this.resolveOrCreate(this.search);
+			if (created) this.done(created);
 			return;
 		}
 		if (getKeybindings().matches(data, "tui.editor.deleteWordBackward")) {
@@ -634,6 +649,23 @@ export class FileExplorer implements Component, Focusable {
 		this.requestRender();
 	}
 
+	/** 输入框路径不存在时创建目录；父目录不存在或创建失败返回 null。 */
+	private resolveOrCreate(input: string): string | null {
+		try {
+			const expanded = expandHome(input.trim());
+			if (!expanded) return null;
+			const absolute = path.resolve(expanded);
+			if (existsSync(absolute)) {
+				return statSync(absolute).isDirectory() ? absolute : null;
+			}
+			if (!existsSync(path.dirname(absolute))) return null;
+			mkdirSync(absolute, { recursive: true });
+			return absolute;
+		} catch {
+			return null;
+		}
+	}
+
 	private chooseSelectedDirectory(): void {
 		const entry = this.selected();
 		if (!entry?.isDirectory) return;
@@ -649,9 +681,12 @@ class ResumeSessionPicker implements Component, Focusable {
 	private error: string | null = null;
 	private readonly filterInput = new Input();
 
+	private confirmPath: string | null = null;
+
 	constructor(
 		private readonly theme: Theme,
 		private readonly loadSessions: () => Promise<SavedSessionInfo[]>,
+		private readonly deleteSession: (sessionPath: string) => Promise<void>,
 		private readonly onDone: (sessionPath: string | null) => void,
 		private readonly requestRender: () => void,
 	) {
@@ -720,6 +755,25 @@ class ResumeSessionPicker implements Component, Focusable {
 	}
 
 	handleInput(data: string): void {
+		// 删除确认态：只响应 enter（确认）和 esc（取消），其余键忽略
+		if (this.confirmPath) {
+			if (matchesKey(data, "return") || matchesKey(data, "enter")) {
+				const path = this.confirmPath;
+				this.confirmPath = null;
+				void this.deleteSession(path)
+					.catch((error) => {
+						this.error = String(error);
+					})
+					.finally(() => void this.refresh());
+				return;
+			}
+			if (matchesKey(data, "escape")) {
+				this.confirmPath = null;
+				this.requestRender();
+				return;
+			}
+			return;
+		}
 		if (matchesKey(data, "escape")) {
 			this.onDone(null);
 			return;
@@ -742,6 +796,14 @@ class ResumeSessionPicker implements Component, Focusable {
 			if (session?.path) this.onDone(session.path);
 			return;
 		}
+		if (isCtrl(data, "d")) {
+			const session = this.filteredSessions()[this.selected];
+			if (session?.path) {
+				this.confirmPath = session.path;
+				this.requestRender();
+			}
+			return;
+		}
 		const before = this.filterInput.getValue();
 		this.filterInput.handleInput(data);
 		if (this.filterInput.getValue() !== before) this.selected = 0;
@@ -758,6 +820,23 @@ class ResumeSessionPicker implements Component, Focusable {
 		const muted = (s: string) => th.fg("muted", s);
 		const error = (s: string) => th.fg("error", s);
 		const lines: string[] = [];
+		// 删除确认视图
+		if (this.confirmPath) {
+			const session = this.sessions.find((s) => s.path === this.confirmPath);
+			const title =
+				session?.name || session?.firstMessage || session?.id.slice(0, 8);
+			lines.push(border());
+			lines.push(padVisible(accent(`Delete session “${title}”?`), width));
+			lines.push(border("dim"));
+			lines.push(
+				padVisible(
+					dim("<enter>") + muted(" confirm · ") + dim("<esc>") + muted(" cancel"),
+					width,
+				),
+			);
+			lines.push(border());
+			return lines;
+		}
 		const visibleSessions = this.filteredSessions();
 		const total = Math.max(1, visibleSessions.length);
 		const index = Math.min(this.selected + 1, total);
@@ -834,6 +913,8 @@ class ResumeSessionPicker implements Component, Focusable {
 					muted(" move · ") +
 					dim("<enter>") +
 					muted(" resume · ") +
+					dim("<C-d>") +
+					muted(" delete · ") +
 					dim("<esc>") +
 					muted(" back"),
 				width,
@@ -864,6 +945,7 @@ class SessionsView {
 	private readonly requestRender: () => void;
 	private folderExplorer: FileExplorer | null = null;
 	private resumePicker: ResumeSessionPicker | null = null;
+	private confirmDeleteId: string | null = null;
 	private timer: NodeJS.Timeout | null = null;
 
 	constructor(
@@ -994,6 +1076,37 @@ class SessionsView {
 			this.resumePicker.handleInput(data);
 			return;
 		}
+		// 删除确认态：只响应 enter（确认）和 esc（取消），其余键忽略
+		if (this.confirmDeleteId) {
+			if (matchesKey(data, "return") || matchesKey(data, "enter")) {
+				const id = this.confirmDeleteId;
+				this.confirmDeleteId = null;
+				void (async () => {
+					try {
+						const session = this.sessions.find((s) => s.id === id);
+						// 等待会话真正被移除（killSession 是延迟执行，await 不等待）
+						if (this.actions.deleteLiveSession) {
+							await this.actions.deleteLiveSession(id);
+						} else {
+							await this.actions.killSession(id);
+						}
+						if (session?.sessionFile) {
+							await this.actions.deleteResumeSession?.(session.sessionFile);
+						}
+					} catch (error) {
+						this.error = String(error);
+					}
+					await this.refresh();
+				})();
+				return;
+			}
+			if (matchesKey(data, "escape")) {
+				this.confirmDeleteId = null;
+				this.requestRender();
+				return;
+			}
+			return;
+		}
 		if (matchesKey(data, "escape")) {
 			this.close();
 			return;
@@ -1023,6 +1136,7 @@ class SessionsView {
 			this.resumePicker = new ResumeSessionPicker(
 				this.theme,
 				this.actions.getResumeSessions,
+				this.actions.deleteResumeSession ?? (async () => {}),
 				(sessionPath: string | null) => {
 					this.resumePicker = null;
 					if (sessionPath) {
@@ -1065,6 +1179,17 @@ class SessionsView {
 				return;
 			}
 			void this.actions.killSession(session.id).then(() => this.close());
+			return;
+		}
+		if (isCtrl(data, "d")) {
+			const session = this.selectedSession();
+			if (!session) return;
+			if (session.id === PARENT_SESSION_ID) {
+				this.actions.notify("Cannot delete parent session.", "warning");
+				return;
+			}
+			this.confirmDeleteId = session.id;
+			this.requestRender();
 			return;
 		}
 
@@ -1259,6 +1384,22 @@ class SessionsView {
 		const success = (s: string) => th.fg("success", s);
 		const error = (s: string) => th.fg("error", s);
 		const lines: string[] = [];
+		// 删除确认视图
+		if (this.confirmDeleteId) {
+			const session = this.sessions.find((s) => s.id === this.confirmDeleteId);
+			const title = session?.shortName || session?.name || this.confirmDeleteId;
+			lines.push(border());
+			lines.push(padVisible(accent(`Delete session “${title}”?`), width));
+			lines.push(border("dim"));
+			lines.push(
+				padVisible(
+					dim("<enter>") + muted(" confirm · ") + dim("<esc>") + muted(" cancel"),
+					width,
+				),
+			);
+			lines.push(border());
+			return lines;
+		}
 		const attached = this.actions.getAttached();
 		const visibleSessions = this.filteredSessions();
 		const total = Math.max(1, visibleSessions.length);
@@ -1342,6 +1483,8 @@ class SessionsView {
 					muted(" new in folder · ") +
 					dim("<C-r>") +
 					muted(" resume · ") +
+					dim("<C-d>") +
+					muted(" delete · ") +
 					dim("<C-k>") +
 					muted(" kill · ") +
 					dim("<esc>") +
