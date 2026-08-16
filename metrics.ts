@@ -84,12 +84,16 @@ export function makeOverride(
 	if (!excludes?.length) return undefined;
 	return (base: any) => ({
 		...base,
-		extensions: base.extensions.filter(
-			(e: any) =>
-				!excludes.some(
-					(x) => e.path.includes(x) || e.resolvedPath.includes(x),
-				),
-		),
+		extensions: (base.extensions ?? []).filter((e: any) => {
+			const path = e?.path;
+			const resolvedPath = e?.resolvedPath;
+			// path/resolvedPath 任一缺失视为不匹配该项，绝不抛 TypeError
+			return !excludes.some(
+				(x) =>
+					(typeof path === "string" && path.includes(x)) ||
+					(typeof resolvedPath === "string" && resolvedPath.includes(x)),
+			);
+		}),
 	});
 }
 

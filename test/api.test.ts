@@ -62,3 +62,73 @@ test("toResult: 聚合结果", () => {
 	assert.equal(r.turns, 3);
 	assert.equal(r.timeMs, 1234);
 });
+
+test("toResult: toolNames 快照不可变（返回后修改 acc 不影响结果）", () => {
+	const acc = emptyMetrics();
+	acc.toolNames.push("bash", "read");
+	const r = toResult(acc, true, undefined);
+	acc.toolNames.push("write"); // 模拟 keepAlive 会话后续事件继续 push
+	assert.deepEqual(r.toolNames, ["bash", "read"]);
+});
+
+test("makeOverride: 无 excludes 返回 undefined（不做过滤）", () => {
+	assert.equal(makeOverride(), undefined);
+	assert.equal(makeOverride([]), undefined);
+});
+
+test("makeOverride: 按 path 子串过滤", () => {
+	const filter = makeOverride(["pi-simplify"])!;
+	const base = {
+		extensions: [
+			{ path: "/x/pi-simplify/index.js", resolvedPath: "/x/pi-simplify/index.js" },
+			{ path: "/x/pi-msessions/index.js", resolvedPath: "/x/pi-msessions/index.js" },
+		],
+	};
+	const out = filter(base);
+	assert.deepEqual(
+		out.extensions.map((e: any) => e.path),
+		["/x/pi-msessions/index.js"],
+	);
+});
+
+test("makeOverride: 缺 path/resolvedPath 不抛 TypeError", () => {
+	const filter = makeOverride(["pi-simplify"])!;
+	const out = filter({
+		extensions: [
+			{ path: "/x/pi-simplify/index.js" }, // 缺 resolvedPath
+			{ resolvedPath: "/x/pi-simplify/index.js" }, // 缺 path
+			{ path: "/x/a.js", resolvedPath: undefined }, // resolvedPath 为 undefined
+		],
+	});
+	assert.equal(out.extensions.length, 1);
+	assert.equal(out.extensions[0].path, "/x/a.js");
+});
+
+test("makeOverride: base.extensions 缺失/为空按空列表处理", () => {
+	const filter = makeOverride(["pi-simplify"])!;
+	assert.deepEqual(filter({}).extensions, []);
+	assert.deepEqual(filter({ extensions: undefined }).extensions, []);
+});
+
+test("parseAgentEvent: 缺 usage/缺字段不崩、按 0 计", () => {
+	const acc = emptyMetrics();
+	parseAgentEvent(
+		{ type: "message_end", message: { role: "assistant" } }, // 无 usage 无 content
+		acc,
+	);
+	assert.equal(acc.totalTokens, 0);
+	assert.equal(acc.cost, 0);
+	assert.equal(acc.answer, "");
+	parseAgentEvent(
+		{
+			type: "message_end",
+			message: {
+				role: "assistant",
+				usage: { input: 5, cost: {} }, // cost 无 total
+			},
+		},
+		acc,
+	);
+	assert.equal(acc.inputTokens, 5);
+	assert.equal(acc.cost, 0);
+});

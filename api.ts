@@ -54,19 +54,26 @@ async function driveSession(
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let resolveSettled!: () => void;
 	const settledPromise = new Promise<void>((r) => (resolveSettled = r));
+	const clearTimer = () => {
+		if (timer) clearTimeout(timer);
+		timer = undefined;
+	};
 	const onSettled = () => {
 		if (settled) return;
 		settled = true;
-		if (timer) clearTimeout(timer);
+		clearTimer();
 		resolveSettled();
 	};
 	timer = setTimeout(() => {
 		timedOut = true;
-		const p = session?.abort?.();
-		if (p?.catch) p.catch(() => {});
+		try {
+			const p = session?.abort?.();
+			if (p?.catch) p.catch(() => {});
+		} catch {}
 		onSettled();
 	}, timeoutSec * 1000);
-	session.subscribe((event: any) => {
+	// 订阅先于发送；sendUserMessage 抛错（会话已中止/内部错误）时也必须在 finally 清定时器
+	const unsubscribe = session.subscribe((event: any) => {
 		// 跑完后（keepAlive 会话仍活着、可能被切进去互动/续跑）不再累计/上报，
 		// 否则结果指标被后续事件污染、进度消息无限刷
 		if (settled) return;
@@ -74,8 +81,13 @@ async function driveSession(
 		onEvent?.(event, acc);
 		if (event.type === "agent_settled") onSettled();
 	});
-	await session.sendUserMessage(prompt, { deliverAs: "followUp" });
-	await settledPromise;
+	try {
+		await session.sendUserMessage(prompt, { deliverAs: "followUp" });
+		await settledPromise;
+	} finally {
+		clearTimer();
+		unsubscribe?.();
+	}
 	const stopErr = acc.stopReason === "error" || acc.stopReason === "aborted";
 	return {
 		acc,
@@ -140,7 +152,7 @@ async function runHeadless(
 		);
 	} finally {
 		try {
-			session?.dispose?.();
+			await session?.dispose?.();
 		} catch {}
 		rmSync(sessionDir, { recursive: true, force: true });
 	}

@@ -1,0 +1,518 @@
+schema: comet.native.v4
+name: test-and-improve-msessions
+language: zh-CN
+phase: archive
+status: done
+state_version: 11
+brief: brief.md
+spec_changes:
+  - capability: subsession-api
+    operation: create
+    source: specs/subsession-api/spec.md
+workspace:
+  isolation: current
+  change_branch: main
+  target_branch: main
+  finish: null
+loop:
+  stage: done
+  goal_cycle: 1
+  iteration: 2
+  attempt: 1
+  retry_epoch: 0
+  failed_iteration_count: 0
+  no_progress_count: 0
+  execution_failure_count: 0
+  previous_unresolved_ids: []
+  next_action: null
+acceptance:
+  - id: A1
+    source: brief.md
+    text: "A1: `npm test` 全绿，且新增用例覆盖 makeOverride 缺字段不抛错、toResult
+      快照不可变、parseAgentEvent 缺字段不崩。"
+    result: passed
+    reason:
+      text: "v2-unit-tests.log: 10/10 pass; 新增用例覆盖 makeOverride 缺字段不抛
+        TypeError、toResult 快照不可变、parseAgentEvent 缺字段按 0 计"
+      truncated: false
+  - id: A2
+    source: brief.md
+    text: "A2: 代码审查确认 `driveSession` 在 sendUserMessage 抛错与正常结束两条路径都清理超时定时器；abort
+      同步抛错被防护；`runHeadless` 在 rmSync 前 await dispose。"
+    result: passed
+    reason:
+      text: "api.ts diff: onSettled 正常路径清定时器；try/finally 包 sendUserMessage
+        抛错路径清定时器+退订；abort 同步抛错 try/catch 防护；runHeadless finally await dispose 后
+        rmSync"
+      truncated: false
+  - id: A3
+    source: brief.md
+    text: 'A3: 真实 LLM 冒烟 headless 与 live 均 `ok: true` 且 `answer === "OK"`。'
+    result: passed
+    reason:
+      text: v2-smoke-headless.log 与 v2-smoke-live.log 均 ok:true, answer=OK（真实 LLM）
+      truncated: false
+  - id: A4
+    source: brief.md
+    text: "A4: `npm run typecheck` 干净；原有 4 个单测仍通过；smoke 无回归。"
+    result: passed
+    reason:
+      text: v2-typecheck.log 无诊断；原 4 测试在 10/10 中仍过；冒烟无回归
+      truncated: false
+  - id: A5
+    source: brief.md
+    text: "A5: 提交仅含本次变更相关文件（不含 .build/、.comet/ 等非交付物）。"
+    result: passed
+    reason:
+      text: git status/diff-stat：仅 api.ts、metrics.ts、test/api.test.ts、.gitignore
+        变更；.build/ 被 gitignore 排除；未含 .comet/ 运行时文件
+      truncated: false
+  - id: A6
+    source: specs/subsession-api/spec.md
+    text: "`pi-msessions` 在进程内为其他插件提供编程式子会话 API：创建独立子会话跑一次
+      prompt，收集指标后返回；支持扩展过滤（无插件臂）与 live 可见模式（可切换可交互）。"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A7
+    source: specs/subsession-api/spec.md
+    text: 入口：`(globalThis as any)[Symbol.for("pi.msessions")].run(opts)`。
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A8
+    source: specs/subsession-api/spec.md
+    text: "`run(opts: SubsessionOptions): Promise<SubsessionResult>`"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A9
+    source: specs/subsession-api/spec.md
+    text: "`cwd: string`（必填）、`prompt: string`（必填）"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A10
+    source: specs/subsession-api/spec.md
+    text: "`timeoutSec?: number` 默认 600"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A11
+    source: specs/subsession-api/spec.md
+    text: "`excludeExtensions?: string[]` 按 path 子串排除全局扩展"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A12
+    source: specs/subsession-api/spec.md
+    text: "`name?`、`visible?: boolean`（默认 false = 纯后台）、`keepAlive?: boolean`（默认
+      false = 跑完销毁）"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A13
+    source: specs/subsession-api/spec.md
+    text: "`onEvent?: (event, acc) => void` 实时累计指标回调"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A14
+    source: specs/subsession-api/spec.md
+    text: 返回 `SubsessionResult`：`ok / error / timeMs / inputTokens / outputTokens /
+      cacheReadTokens / totalTokens / cost / turns / toolCalls / toolNames[] /
+      answer / stopReason?`。`toolNames` 为返回时刻的快照，后续事件不再修改它。
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A15
+    source: specs/subsession-api/spec.md
+    text: "`parseAgentEvent(event, acc)`："
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A16
+    source: specs/subsession-api/spec.md
+    text: '`message_end`：仅统计 `role === "assistant"`；缺
+      `usage`/缺字段（input/output/cacheRead/totalTokens/cost）一律按 0 计，不抛错；`content`
+      仅拼 `type === "text"`，缺 content 不崩；记录 `stopReason` 与 `answer`。'
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A17
+    source: specs/subsession-api/spec.md
+    text: "`turn_end`：turns+1；`tool_execution_start`：toolCalls+1 并记录 toolName。"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A18
+    source: specs/subsession-api/spec.md
+    text: "`makeOverride(excludes?)`："
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A19
+    source: specs/subsession-api/spec.md
+    text: "`excludes` 为空/未传 → 返回 `undefined`（不做过滤）。"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A20
+    source: specs/subsession-api/spec.md
+    text: 过滤时按 `e.path` 与 `e.resolvedPath` 的 path 子串匹配；两者任一缺失时视为不匹配该项，绝不抛
+      TypeError；`base.extensions` 缺失或为空时按空列表处理。
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A21
+    source: specs/subsession-api/spec.md
+    text: 超时定时器在以下两条路径都必须被清理，不得遗留 dangling setTimeout：
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A22
+    source: specs/subsession-api/spec.md
+    text: 正常结束（agent_settled）；
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A23
+    source: specs/subsession-api/spec.md
+    text: "`sendUserMessage` 抛错（会话已中止/内部错误）。"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A24
+    source: specs/subsession-api/spec.md
+    text: "`session.abort()` 可能同步抛错，必须防护。"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A25
+    source: specs/subsession-api/spec.md
+    text: headless 路径：先 await `session.dispose()`，再
+      `rmSync(sessionDir)`，避免异步清理与目录删除竞态；异常路径同样清理。
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A26
+    source: specs/subsession-api/spec.md
+    text: "live 路径：任务跑完即 abort 停 agent；`keepAlive: false` 时 `stopChild` 销毁并清理临时
+      sessionDir，`keepAlive: true` 保留 transcript 供切换查看/续聊。"
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+  - id: A27
+    source: specs/subsession-api/spec.md
+    text: 会话跑完后（settled）不再累计指标/触发 onEvent，防止 keepAlive 会话后续事件污染结果。
+    result: passed
+    reason:
+      text: 完整 spec 对照实现逐条一致：API 签名未改（run 选项与 SubsessionResult
+        字段不变）；parseAgentEvent/makeOverride 语义符合（含 typeof-string 防护与
+        (base.extensions ?? [])）；定时器双路径清理；dispose 顺序；live keepAlive 语义；settled
+        后不再累计/onEvent
+      truncated: false
+builder_handoff:
+  candidate_id: cf718a3e-05e7-422b-98cb-770dbf12e00c
+  identity_provider: skill-coordinated
+  builder_execution_ref: skill-coordinated:builder:448b5288-8ed7-4da7-8fcd-7375c3f01998
+  iteration: 2
+  summary:
+    text: 第 2 轮候选（实现不变）：上一轮 Verify 的 Runtime 检查因执行器 spawn PATH 缺失全部
+      ENOENT（npm/bash/git 未解析），且 smoke 检查标记为不可重复导致中断 → Runtime 退回
+      Build。本轮修正：检查计划使用绝对路径可执行文件（/Users/meetai/.nvm/.../npm、/bin/bash、/opt/homebrew/bin/git），冒烟检查改为
+      repeatable，避免再次中断。代码变更与第 1 轮相同：makeOverride 防护缺失字段；driveSession 定时器
+      try/finally 清理 + abort 防护；runHeadless await dispose；新增 6 边界单测。
+    truncated: false
+  addressed_acceptance_ids:
+    - A1
+    - A2
+    - A3
+    - A4
+    - A6
+    - A7
+    - A8
+    - A9
+    - A10
+    - A11
+    - A12
+    - A13
+    - A14
+    - A15
+    - A16
+    - A17
+    - A18
+    - A19
+    - A20
+    - A21
+    - A22
+    - A23
+    - A24
+    - A25
+    - A26
+    - A27
+  checks:
+    - name:
+        text: npm test
+        truncated: false
+      result: passed
+      note:
+        text: 10/10 通过（原 4 + 新 6）
+        truncated: false
+    - name:
+        text: npm run typecheck
+        truncated: false
+      result: passed
+      note:
+        text: tsc --noEmit 干净
+        truncated: false
+    - name:
+        text: smoke.ts (headless, real LLM)
+        truncated: false
+      result: passed
+      note:
+        text: ok:true answer=OK, 7.3s
+        truncated: false
+    - name:
+        text: smoke-live.ts (live, real LLM)
+        truncated: false
+      result: passed
+      note:
+        text: ok:true answer=OK, 7.0s
+        truncated: false
+  checks_truncated: false
+  known_limits:
+    - text: A21-A24 超时/abort 路径由代码审查验证，未做运行时注入测试
+      truncated: false
+    - text: live 切换 UI 交互（/msessions、Ctrl-R）未在冒烟中端到端验证（无 TUI 环境）
+      truncated: false
+    - text: A5（提交内容）属 Archive 阶段事项
+      truncated: false
+  known_limits_truncated: false
+  submitted_at: 2026-08-16T05:36:34.358Z
+blockers: []
+verification:
+  candidate_id: cf718a3e-05e7-422b-98cb-770dbf12e00c
+  identity_provider: skill-coordinated
+  verifier_execution_ref: skill-coordinated:verifier:66c625f8-fd9f-4b1b-929c-7af58a84ee33
+  iteration: 2
+  attempt: 1
+  assurance: skill-coordinated
+  verdict: pass
+  checks:
+    - id: v2-unit-tests
+      name:
+        text: npm test
+        truncated: false
+      argv_display:
+        - text: test
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 279
+    - id: v2-typecheck
+      name:
+        text: npm run typecheck
+        truncated: false
+      argv_display:
+        - text: run
+          truncated: false
+        - text: typecheck
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 1638
+    - id: v2-diff-stat
+      name:
+        text: git diff --stat（变更范围审查）
+        truncated: false
+      argv_display:
+        - text: diff
+          truncated: false
+        - text: --stat
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 10
+    - id: v2-smoke-headless
+      name:
+        text: smoke.ts (headless, real LLM)
+        truncated: false
+      argv_display:
+        - text: -c
+          truncated: false
+        - text: rm -rf .build && ./node_modules/.bin/tsc --noEmit false
+            --rewriteRelativeImportExtensions --outDir .build --module nodenext
+            --moduleResolution nodenext --target es2022 --skipLibCheck --types
+            node --allowImportingTsExtensions scripts/smoke.ts && node
+            .build/scripts/smoke.js
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 8339
+    - id: v2-smoke-live
+      name:
+        text: smoke-live.ts (live, real LLM)
+        truncated: false
+      argv_display:
+        - text: -c
+          truncated: false
+        - text: rm -rf .build && ./node_modules/.bin/tsc --noEmit false
+            --rewriteRelativeImportExtensions --outDir .build --module nodenext
+            --moduleResolution nodenext --target es2022 --skipLibCheck --types
+            node --allowImportingTsExtensions scripts/smoke-live.ts && node
+            .build/scripts/smoke-live.js
+          truncated: false
+      argv_truncated: false
+      cwd_ref: .
+      status: passed
+      exit_code: 0
+      duration_ms: 8391
+  summary:
+    text: 全部 27 项验收通过：10/10 单测、typecheck 干净、headless+live 真实 LLM 冒烟均 ok:true
+      answer=OK、变更范围仅 api.ts/metrics.ts/test/api.test.ts、A6-A27 完整 spec 与实现一致。
+    truncated: false
+  risks:
+    - text: runLive 的 session.abort() 在 settle 后未单独 try/catch，同步抛错落入外层 try/catch →
+        stopChild + 错误结果，可接受，不在本次范围内
+      truncated: false
+  risks_truncated: false
+  completed_at: 2026-08-16T05:38:44.668Z
+history:
+  - goal_cycle: 1
+    iteration: 1
+    attempt: 1
+    outcome: execution-error
+    unresolved_ids: []
+    summary:
+      text: "Native Verifier response was invalid: Native Verifier check ID unit-tests
+        conflicts with a Runtime check"
+      truncated: false
+    completed_at: 2026-08-16T05:35:16.156Z
+  - goal_cycle: 1
+    iteration: 1
+    attempt: 1
+    outcome: recovery
+    unresolved_ids: []
+    summary:
+      text: A non-repeatable Runtime check was interrupted (smoke-headless,
+        smoke-live); a new Builder candidate is required before it can run
+        again.
+      truncated: false
+    completed_at: 2026-08-16T05:36:06.653Z
+  - goal_cycle: 1
+    iteration: 2
+    attempt: 1
+    outcome: pass
+    unresolved_ids: []
+    summary:
+      text: 全部 27 项验收通过：10/10 单测、typecheck 干净、headless+live 真实 LLM 冒烟均 ok:true
+        answer=OK、变更范围仅 api.ts/metrics.ts/test/api.test.ts、A6-A27 完整 spec 与实现一致。
+      truncated: false
+    completed_at: 2026-08-16T05:38:44.668Z
+history_overflow:
+  dropped_entries: 0
+  first_dropped_at: null
+  last_dropped_at: null
+  outcome_counts:
+    pass: 0
+    fail: 0
+    blocked: 0
+    execution-error: 0
+    recovery: 0
+verification_result: pass
+verification_report: verification.md
+archived: true
+created_at: 2026-08-16T04:38:22.078Z

@@ -1,3 +1,8 @@
 node_modules/
 .build/
 package-lock.json
+# >>> Comet managed project state >>>
+!/.comet/
+/.comet/*
+!/.comet/config.yaml
+# <<< Comet managed project state <<<
